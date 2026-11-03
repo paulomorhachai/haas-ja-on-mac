@@ -35,7 +35,7 @@ kda_torch.install()   # モデルを読み込む前に呼ぶ(run_haas.py と同�
 ## 動作確認した環境
 
 Apple M1 Max(32GB)、macOS 26.3.2、Python 3.12、PyTorch 2.15.0、NeMo 2.7.3、lightning 2.6.6、transformers 5.22.1、Haas-ASR `acc614f`、jacer 1.2.0(依存の版の固定については、下の「セキュリティ」を参照)。
-**他の環境(M4 など)は未確認です。**
+**他の環境は未確認です。**
 
 ## 使い方
 
