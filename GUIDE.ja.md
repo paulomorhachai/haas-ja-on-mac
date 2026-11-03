@@ -204,6 +204,64 @@ fleurs   650 samples  cer_strict  3.69  cer_flex  3.02  cer_kana  2.38   RTFx 13
 
 ---
 
+## STEP 10（任意）: 公式のサンプルと、ブラウザデモを動かす
+
+公式 Haas-ASR のサンプルとデモは、そのままでは Mac で動きません。公式のコードを書き換えずに動かすための包み、`run_official.py` を使います。
+
+**公式のサンプル（クイックスタート）**: STEP 6 で作った音声を、文字にします。
+
+```bash
+.venv/bin/python run_official.py upstream/examples/quickstart.py --model third-intelligence/Haas-ja-v1.0 audio/say_0.wav
+```
+
+**語彙の指定**: 専門用語や人名を、指定した書き方で出させる機能です。`--words` の `=` の左が出したい書き方、右が、モデルが書きそうな綴り（カンマ区切り）です。まず、固有名詞を含む音声を作ります。
+
+```bash
+mkdir -p feature_in
+```
+
+```bash
+say -v Kyoko -o feature_in/vocab.aiff "サードインテリジェンスが公開した、ハースという音声認識モデルを、Macで動かしてみました。"
+```
+
+```bash
+afconvert -f WAVE -d LEI16@16000 -c 1 feature_in/vocab.aiff feature_in/vocab.wav
+```
+
+語彙なしで文字にすると、私の環境では「サードインテリジェンスが公開した**first**という音声認識モデルを**mc**で動かしてみました。」になりました（モデルが「ハース」と「Mac」を、そう聞き取ります）。
+
+```bash
+.venv/bin/python run_official.py upstream/examples/quickstart.py --model third-intelligence/Haas-ja-v1.0 feature_in/vocab.wav
+```
+
+次に、語彙を指定します。モデルが実際に書いてしまった綴り（`first`、`mc`）も、読みの候補に入れるのがコツです。
+
+```bash
+.venv/bin/python run_official.py upstream/examples/transcribe_with_vocabulary.py --model third-intelligence/Haas-ja-v1.0 feature_in/vocab.wav --words "Haas=ハース,first,ファースト" "Third Intelligence=サードインテリジェンス" "Mac=マック,mc"
+```
+
+私の環境では、「Third Intelligenceが公開したHaasという音声認識モデルをMacで動かしてみました。」と出ました。効き方は音声しだいです。詳しくは [README](README.md) の「語彙の指定について」を読んでください。
+
+**ブラウザデモ**: まず、デモ用の部品を入れます（1回だけ）。
+
+```bash
+uv pip install --python .venv/bin/python --override overrides.txt "fastapi>=0.110" "uvicorn>=0.29" "wsproto>=1.2"
+```
+
+デモのサーバーを起動します（最初は、モデルの読み込みなどで、少し待ちます）。
+
+```bash
+.venv/bin/python run_official.py -m demos.app --device mps
+```
+
+ブラウザで http://localhost:7860 を開きます。「長時間音声」の画面では、「音声ファイルを選択…」から、音声を選ぶと、文字になります。「リアルタイム」の画面では、「音声ファイルを再生…」で、字幕が段階的に出ます。サーバーを止めるときは、ターミナルで `Ctrl` + `C` を押します。
+
+- 私の環境では、画面の動作を、**アプリ内のブラウザ 1 種類**で確かめました。**マイク入力（「マイクで話す」）と、Safari や Chrome での動作は、確かめていません。**
+- サーバーは、自分の Mac（`127.0.0.1`）からしか見えません。公式の説明どおり、試用のためのもので、本番用ではありません。
+- 話者ラベルの機能（`examples/speakers/`）は、別の環境が必要で、確かめていません。
+
+---
+
 ## つまずいたとき
 
 | 症状 | 対処 |
