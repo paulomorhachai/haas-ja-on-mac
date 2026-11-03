@@ -4,6 +4,8 @@
 
 *English summary: Haas-ja-v1.0 officially requires Linux + an NVIDIA GPU because its prediction network (Kimi Delta Attention, KDA) runs on Triton/CUDA kernels from flash-linear-attention. This repo replaces only that layer with a plain-PyTorch, inference-only implementation (`kda_torch.py`) and runs the official `haas_asr` code on Apple Silicon. On FLEURS (ja_jp, 650 utterances) it gives CER 3.69 / 3.02 / 2.38 (strict / flex / kana) vs. the published 3.67 / 2.98 / 2.34. Unofficial and unaffiliated; see "Not verified" below.*
 
+**初めての方は、コピー＆ペーストで進められる [手順書（GUIDE.ja.md）](GUIDE.ja.md) からどうぞ。**
+
 ## 何をしたか
 
 公式は「Linux + NVIDIA GPU のみ。CPU と macOS は非対応」としています。理由は、デコーダの予測ネットワークが使う
