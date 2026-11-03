@@ -81,6 +81,8 @@ cd haas-ja-on-mac
 公式のコードの取得、Python 3.12 の環境づくり、NeMo などのインストールを、まとめて行います。ダウンロードが多いので、回線によっては、時間がかかります。
 **最後に `SETUP_DONE` と出れば成功です。**
 
+途中で `[修正] …` という行が出ることがありますが、正常です。既知の脆弱性を避けるため、一部のパッケージを修正版以上に固定し（`overrides.txt`）、その組み合わせのための小さな互換修正（`patch_compat.py`）を当てているためです。詳しくは [README](README.md) の「セキュリティ」を読んでください。
+
 もし `Permission denied` と出たら、こちらで実行してください。
 
 ```bash
@@ -154,7 +156,7 @@ git clone https://huggingface.co/datasets/third-intelligence/asr-ja-bench bench_
 ```
 
 ```bash
-uv pip install --python .venv/bin/python pyarrow "jacer @ git+https://github.com/third-intelligence/jacer.git@b861959fe0a8f67f47c848d19c1a9cb8a32e1c2e"
+uv pip install --python .venv/bin/python --override overrides.txt pyarrow "jacer @ git+https://github.com/third-intelligence/jacer.git@b861959fe0a8f67f47c848d19c1a9cb8a32e1c2e"
 ```
 
 **2. 音声の取り直し**
@@ -190,6 +192,18 @@ fleurs   650 samples  cer_strict  3.69  cer_flex  3.02  cer_kana  2.38   RTFx 13
 
 ---
 
+## STEP 9（任意）: 入れたパッケージに、既知の脆弱性がないか確かめる
+
+```bash
+./audit_deps.sh
+```
+
+最後に `No known vulnerabilities found` と出れば、**照合した時点で**、既知の脆弱性はありません（私の環境では、2026-11-03 に、セットアップ直後の 188 パッケージと、STEP 8 の道具を入れたあとの 194 パッケージの、どちらでも 0 件でした）。新しい脆弱性は日々見つかるので、定期的に実行してください。脆弱性が見つかった場合は、パッケージ名と修正版が表示されます。
+
+照合できないものがあります。公式のコード（Haas-ASR）と jacer は PyPI にないため、対象外です。「0 件」は、安全の保証ではありません。詳しくは [README](README.md) の「セキュリティ」を読んでください。
+
+---
+
 ## つまずいたとき
 
 | 症状 | 対処 |
@@ -202,8 +216,10 @@ fleurs   650 samples  cer_strict  3.69  cer_flex  3.02  cer_kana  2.38   RTFx 13
 | `say` が日本語の声を見つけられない | STEP 6 の注意を見てください |
 | `Triton` や `CUDA` に関するエラー | 付属のスクリプト（`run_*.py`）を使わず、ご自分のコードで呼んだ場合は、モデルを読み込む前に `kda_torch.install()` を呼んでいないことが原因かもしれません |
 | 「(出力なし)」が多い | STEP 7 の説明を見てください |
+| `setup_env.sh` が「未確認の版です」または「想定と違います」と出て止まる | 依存パッケージの版が、確認した版から変わった可能性があります。`patch_compat.py` が、確認していない版を書き換えないように、止めています。リポジトリの持ち主に連絡してください |
+| `./audit_deps.sh` が脆弱性を報告した | 表示されたパッケージの修正版を、`overrides.txt` に加えて、`setup_env.sh` をやり直すのが基本です。ただし、版が上がると動かなくなることがあります。持ち主に連絡してください |
 
-※ このうち、`uv` の件、`Permission denied` の件、`ModuleNotFoundError` の件、`Triton` の件、`--batch-size 8` で使うメモリが減るという点は、起こりうる原因や理屈から書いたもので、実際にその症状を再現したり、効果を測ったりして確かめたものではありません。
+※ このうち、`uv` の件、`Permission denied` の件、`ModuleNotFoundError` の件、`Triton` の件、`--batch-size 8` で使うメモリが減るという点、最後の2行（版が変わって止まる件、脆弱性が報告された件）は、起こりうる原因や理屈から書いたもので、実際にその症状を再現したり、効果を測ったりして確かめたものではありません。
 
 ## 後片付け（不要になったとき）
 
@@ -221,6 +237,7 @@ fleurs   650 samples  cer_strict  3.69  cer_flex  3.02  cer_kana  2.38   RTFx 13
 - **KDA（Kimi Delta Attention）**: このモデルの、デコーダの一部の計算の仕組み。公式の実装は、NVIDIA GPU 専用の部品（Triton）に頼っていて、Mac では動きません。このリポジトリは、この部分だけを、普通の PyTorch で書き直しています（`kda_torch.py`）。
 - **RTFx**: 音声の長さが、処理時間の何倍か。大きいほど速い。
 - **jacer**: 日本語の文字起こしの誤り率を計算する、公式が固定した評価器。
+- **脆弱性**: ソフトウェアの弱点で、悪用されると、意図しない動作（例: 悪意のあるファイルを読み込んだときに、コードが実行される）が起きうるもの。**pip-audit** は、入れたパッケージを、既知の脆弱性のデータベースと照合する道具です。
 
 ---
 

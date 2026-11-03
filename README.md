@@ -34,7 +34,7 @@ kda_torch.install()   # モデルを読み込む前に呼ぶ(run_haas.py と同�
 
 ## 動作確認した環境
 
-Apple M1 Max(32GB)、macOS 26.3.2、Python 3.12、PyTorch 2.15.0、NeMo 2.7.3、Haas-ASR `acc614f`、jacer 1.2.0。
+Apple M1 Max(32GB)、macOS 26.3.2、Python 3.12、PyTorch 2.15.0、NeMo 2.7.3、lightning 2.6.6、transformers 5.22.1、Haas-ASR `acc614f`、jacer 1.2.0(依存の版の固定については、下の「セキュリティ」を参照)。
 **他の環境(M4 など)は未確認です。**
 
 ## 使い方
@@ -42,7 +42,7 @@ Apple M1 Max(32GB)、macOS 26.3.2、Python 3.12、PyTorch 2.15.0、NeMo 2.7.3、
 前提: [uv](https://docs.astral.sh/uv/)、git。
 
 ```bash
-./setup_env.sh          # 公式リポジトリの clone、venv、NeMo 2.7、fla-core の参照実装の展開
+./setup_env.sh          # 公式リポジトリの clone、venv、NeMo 2.7(脆弱性対策の版指定つき)、互換修正、fla-core の参照実装の展開
 .venv/bin/python test_kda_torch.py                         # KDA の検品(CPU、数秒)
 .venv/bin/python run_haas.py --device mps                  # 合成音声3文の煙テスト(初回は HF から重みを取得)
 ```
@@ -55,7 +55,7 @@ asr-ja-bench は音声を含みません。FLEURS は HF から自動で取得�
 
 ```bash
 git clone https://huggingface.co/datasets/third-intelligence/asr-ja-bench bench_repo
-uv pip install --python .venv/bin/python pyarrow "jacer @ git+https://github.com/third-intelligence/jacer.git@b861959fe0a8f67f47c848d19c1a9cb8a32e1c2e"
+uv pip install --python .venv/bin/python --override overrides.txt pyarrow "jacer @ git+https://github.com/third-intelligence/jacer.git@b861959fe0a8f67f47c848d19c1a9cb8a32e1c2e"
 .venv/bin/python bench_repo/rebuild.py --subset fleurs --out bench_data    # 650/650 件の書き起こしをハッシュ照合
 .venv/bin/python test_jacer.py                                             # 評価器の検品
 .venv/bin/python run_bench.py --subset fleurs                              # 結果は bench_out/
@@ -79,6 +79,32 @@ mkdir -p film_test && afconvert -f WAVE -d LEI16@16000 -c 1 input.mp4 film_test/
 - `test_kda_torch.py`: fla-core の参照実装(`naive_recurrent_kda`)との一致(状態・出力の差 1e-7 未満)、短畳み込みのキャッシュ(一括処理と1トークンずつの処理の一致)、レイヤー全体の一致。
 - `test_jacer.py`: 手計算した6ケースで、評価器が期待値どおりの CER を返すか。
 - `check_empty.py`: 「出力なし」の断片が、無音なのか、音があるのに出力がないのかを音量で仕分ける。
+
+## セキュリティ(依存パッケージの脆弱性)
+
+2026-11-03 時点で、このリポジトリの手順で作った環境(セットアップ直後は 188 パッケージ、ベンチの道具を入れたあとは 194 パッケージ)を、[pip-audit](https://github.com/pypa/pip-audit) で照合すると、**既知の脆弱性は 0 件**でした。`./audit_deps.sh` で、いつでも再確認できます(新しい脆弱性は日々見つかるので、定期的に実行してください)。
+
+**何をしているか**
+
+- NeMo 2.7.3 などが課す古い上限を、`overrides.txt` で上書きして、修正版以上に固定しています(fsspec、hydra-core、packaging、transformers、lightning)。最初の4つは、公式 Haas-ASR の `override-dependencies` と同じです。公式の設定は、公式のリポジトリで `uv sync` したときだけ効くので、ここでは `uv pip install --override` で同じ効果を得ています。
+- **lightning だけは、公式と違います。** 公式は、NeMo 2.7.3 との互換のため lightning 2.4.0 のままにしていますが、2.4.0 には既知の脆弱性(悪意のあるチェックポイントの読み込みでコードが実行される問題など)が残ります。ここでは 2.6.6 に上げて、`patch_compat.py` で互換を取っています。
+
+**`patch_compat.py` がしていること**
+
+インストールされた第三者のファイル2か所を書き換えます。どちらも、宣言や読み込み先を直すだけで、学習時にしか使わない部分です(文字起こしには使いません)。
+
+1. nv-one-logger 2.3.1 の `save_checkpoint` の型宣言を、`bool` から `Optional[bool]` に直す(lightning 2.6.6 の宣言に合わせる)。
+2. NeMo の `exp_manager.py` が `NeptuneLogger` を読み込む場所を、`lightning.pytorch.loggers.neptune` に直す(2.6.6 では、`loggers` の入口から公開されなくなったため)。
+
+対象の版が確認済みのものでない、または該当箇所がちょうど1つでない場合は、書き換えずに止まります(そのときは `setup_env.sh` が失敗して終わります)。NVIDIA 側や NeMo 側で直った版が出れば、不要になります。
+
+**確認したこと**: 対策前と対策後で、FLEURS 650 件の CER は小数4桁まで同じで(strict 3.6886、flex 3.0182、kana 2.3829)、650 件すべてのサンプルで、モデルの出力文字列が一致しました。KDA の検品テストも通っています。
+
+**注意(照合できていないもの)**
+
+- 公式のコード(Haas-ASR)と jacer は PyPI に無いため、照合の対象外です。OS や uv などの道具も、対象外です。
+- 「既知の脆弱性が 0 件」は、安全の保証ではありません。未知の脆弱性は、見つかりません。
+- 依存パッケージとは別に、**信頼できない配布元のモデルの重みやチェックポイントを読み込むと、危険があります**。重みは、信頼できる配布元のものだけを使ってください。
 
 ## 未検証・言えないこと(Not verified)
 
