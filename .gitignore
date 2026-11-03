@@ -1,0 +1,13 @@
+.venv/
+upstream/
+fla_core/
+bench_repo/
+bench_data/
+bench_out*/
+__pycache__/
+*.log
+audio/
+out/
+film_test/
+film_out/
+transcripts/

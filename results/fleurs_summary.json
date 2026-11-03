@@ -1,0 +1,32 @@
+{
+ "device": "mps",
+ "dtype": "float32",
+ "batch_size": 16,
+ "limit": 0,
+ "subsets": {
+  "fleurs": {
+   "samples": 650,
+   "hours": 2.3642000000000003,
+   "wall_sec": 63.54248905181885,
+   "rtfx": 133.94376152088077,
+   "cer_strict": 0.03688624954083507,
+   "cer_flex": 0.030182441532998653,
+   "cer_kana": 0.02382925818483216
+  }
+ },
+ "metrics_version": "v1.2",
+ "scoring": {
+  "metrics_version": "v1.2",
+  "jacer": "1.2.0",
+  "dependencies": {
+   "unidic-lite": "1.0.8",
+   "fugashi": "1.5.2",
+   "pyopenjtalk-plus": "0.4.1.post8",
+   "neologdn": "0.5.6",
+   "sudachipy": "0.6.11",
+   "sudachidict-core": "20260428"
+  },
+  "pinned": true,
+  "user_dict": null
+ }
+}
